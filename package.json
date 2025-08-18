@@ -1,0 +1,13 @@
+{
+  "name": "know-your-home",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose up -d",
+    "build": "docker-compose build",
+    "stop": "docker-compose down"
+  }
+}
