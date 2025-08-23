@@ -8,6 +8,19 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Know Your Home API',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      brands: '/api/brands'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
