@@ -1,16 +1,22 @@
 const http = require('http');
 
-const PORT = process.env.PORT || 4000;
+// Railway sets PORT to 8080
+const PORT = process.env.PORT || 8080;
 
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'application/json' });
+  console.log(`Request received: ${req.method} ${req.url}`);
+  res.writeHead(200, { 
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*'
+  });
   res.end(JSON.stringify({ 
-    message: 'API is working!',
+    message: 'Know Your Home API is running!',
     path: req.url,
+    port: PORT,
     time: new Date().toISOString()
   }));
 });
 
-server.listen(PORT, () => {
-  console.log('Server started on port ' + PORT);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
 });
