@@ -165,7 +165,7 @@ app.get('/', async (req, res) => {
     
     res.json({
       message: 'Know Your Home API',
-      version: '3.0.0',
+      version: '3.0.1',
       status: 'running',
       database: 'connected',
       stats: {
@@ -175,9 +175,9 @@ app.get('/', async (req, res) => {
       endpoints: {
         health: '/health',
         brands: '/api/brands',
-        brand: '/api/brands/:id',
+        search: '/api/search?q=samsung',
+        brand: '/api/brand/1',
         categories: '/api/categories',
-        search: '/api/brands/search?q=samsung',
         dbTest: '/api/db-test'
       }
     });
@@ -252,8 +252,34 @@ app.get('/api/brands', async (req, res) => {
   }
 });
 
-// Get single brand
-app.get('/api/brands/:id', async (req, res) => {
+// IMPORTANT: Search route MUST come BEFORE /:id route
+// Search brands - NEW ENDPOINT PATH
+app.get('/api/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    return res.json({ results: [], query: '' });
+  }
+  
+  try {
+    const result = await pool.query(
+      `SELECT * FROM brands 
+       WHERE LOWER(name) LIKE LOWER($1) 
+       AND active = true 
+       ORDER BY name`,
+      [`%${q}%`]
+    );
+    res.json({
+      query: q,
+      count: result.rows.length,
+      results: result.rows
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get single brand - CHANGED PATH to avoid conflict
+app.get('/api/brand/:id', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -290,30 +316,13 @@ app.get('/api/brands/:id', async (req, res) => {
   }
 });
 
-// Search brands
-app.get('/api/brands/search', async (req, res) => {
-  const { q } = req.query;
-  if (!q) {
-    return res.json([]);
-  }
-  
-  try {
-    const result = await pool.query(
-      `SELECT * FROM brands 
-       WHERE LOWER(name) LIKE LOWER($1) 
-       AND active = true 
-       ORDER BY name`,
-      [`%${q}%`]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Add new brand
 app.post('/api/brands', async (req, res) => {
   const { name, centralized_helpdesk, has_mobile_app, official_website } = req.body;
+  
+  if (!name) {
+    return res.status(400).json({ error: 'Brand name is required' });
+  }
   
   try {
     const result = await pool.query(
@@ -324,7 +333,11 @@ app.post('/api/brands', async (req, res) => {
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    if (err.code === '23505') { // Unique violation
+      res.status(400).json({ error: 'Brand already exists' });
+    } else {
+      res.status(400).json({ error: err.message });
+    }
   }
 });
 
