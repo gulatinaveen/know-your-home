@@ -1,32 +1,63 @@
 const http = require('http');
-const port = process.env.PORT || 8080;
+const { Pool } = require('pg');
 
-http.createServer((req, res) => {
+const PORT = process.env.PORT || 8080;
+
+// Only create pool if DATABASE_URL exists
+let pool = null;
+if (process.env.DATABASE_URL) {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+}
+
+const server = http.createServer(async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  
-  const response = {
-    message: 'Welcome to Know Your Home API!',
-    description: 'Manage your home appliances and warranties',
-    endpoints: {
-      health: '/health',
-      api: '/api',
-      brands: '/api/brands'
-    },
-    status: 'running',
-    timestamp: new Date().toISOString()
-  };
   
   if (req.url === '/health') {
     res.end('OK');
-  } else if (req.url === '/api/brands') {
-    res.end(JSON.stringify([
-      { id: 1, name: 'Samsung', helpline: '1800-40-7267864' },
-      { id: 2, name: 'LG', helpline: '1800-315-9999' },
-      { id: 3, name: 'Whirlpool', helpline: '1800-208-1800' }
-    ]));
-  } else {
-    res.end(JSON.stringify(response));
+    return;
   }
-}).listen(port);
+  
+  if (req.url === '/api/db-test') {
+    if (!pool) {
+      res.end(JSON.stringify({ 
+        database: 'not configured',
+        error: 'DATABASE_URL not found'
+      }));
+      return;
+    }
+    
+    try {
+      const result = await pool.query('SELECT NOW() as time, version() as version');
+      res.end(JSON.stringify({ 
+        database: 'connected',
+        time: result.rows[0].time,
+        version: result.rows[0].version,
+        message: 'Database is working!'
+      }));
+    } catch (err) {
+      res.end(JSON.stringify({ 
+        database: 'error',
+        error: err.message
+      }));
+    }
+    return;
+  }
+  
+  // Default response
+  res.end(JSON.stringify({
+    message: 'Know Your Home API',
+    database_url: process.env.DATABASE_URL ? 'configured' : 'not configured',
+    endpoints: {
+      health: '/health',
+      dbTest: '/api/db-test'
+    }
+  }));
+});
 
-console.log('Server running on port ' + port);
+server.listen(PORT, () => {
+  console.log('Server running on port ' + PORT);
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'configured' : 'not configured');
+});
